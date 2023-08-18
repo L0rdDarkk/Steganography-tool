@@ -18,20 +18,20 @@ class TextSteganographyApp:
             print("Invalid choice. Please select 1 or 2.")
 
     def encodeMessage(self):
-        image_path = input("Enter the path of the image to encode: ")
+        image_path = input("Enter the path of the PNG image to encode: ")
         secret_message = input("Enter the secret message: ")
         encrypted_message = self.encrypt(secret_message)
         encoded_image_path = self.encode_image(image_path, encrypted_message)
         print(f"Encoded image saved at {encoded_image_path}")
 
     def decodeMessage(self):
-        encoded_image_path = input("Enter the path of the encoded image: ")
+        encoded_image_path = input("Enter the path of the encoded PNG image: ")
         decoded_message = self.decode_image(encoded_image_path)
         decrypted_message = self.decrypt(decoded_message)
         print(f"Decoded message: {decrypted_message}")
 
     def encode_image(self, source_img_path, secret_msg):
-        source_img = Image.open(source_img_path)
+        source_img = Image.open(source_img_path).convert("RGBA")
         secret_msg = secret_msg + "\n"
 
         if len(secret_msg) > source_img.width * source_img.height:
@@ -57,21 +57,35 @@ class TextSteganographyApp:
                     break
 
         output_img_path = "encoded_image.png"
-        encoded_img.save(output_img_path)
+        encoded_img.save(output_img_path, "PNG")
         return output_img_path
 
     def decode_image(self, encoded_img_path):
-        encoded_img = Image.open(encoded_img_path)
+        encoded_img = Image.open(encoded_img_path).convert("RGBA")
         secret_msg_bin = ''
+        secret_byte = ''
 
         for y in range(encoded_img.height):
             for x in range(encoded_img.width):
                 pixel = encoded_img.getpixel((x, y))
 
                 for color_channel in range(3):
-                    secret_msg_bin += format(pixel[color_channel], '08b')[-1]
+                    secret_byte += format(pixel[color_channel], '08b')[-1]
 
-        return secret_msg_bin
+                    if len(secret_byte) == 8:
+                        if secret_byte == '00000000':  # End of message indicator
+                            break
+                        secret_msg_bin += secret_byte
+                        secret_byte = ''
+
+                if secret_byte == '00000000':
+                    break
+
+        secret_message = ''
+        for i in range(0, len(secret_msg_bin), 8):
+            secret_message += chr(int(secret_msg_bin[i:i+8], 2))
+
+        return secret_message
 
     def encrypt(self, message):
         key = 3
